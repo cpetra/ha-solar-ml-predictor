@@ -1,6 +1,7 @@
 {
   "domain": "solar_ml_predictor",
   "name": "Solar ML Predictor",
+  "after_dependencies": ["recorder"],
   "codeowners": ["@cpetra"],
   "config_flow": true,
   "dependencies": ["http"],
