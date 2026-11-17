@@ -1,6 +1,6 @@
 # Solar ML Multi-Group PV Predictor (`solar_ml_predictor`)
 
-A standalone, zero-dependency **Home Assistant Custom Integration** (for the Home Assistant Marketplace / HACS) that predicts hourly, same-day, next-day, and rolling 24-hour photovoltaic (PV) solar energy production across **up to 4 solar panel groups** (roof planes / MPPT strings) using a **Physics-Informed Self-Learning Regression Engine**.
+A standalone, zero-dependency **Home Assistant Custom Integration** (for the Home Assistant Marketplace / HACS) — evolved as a structured Home Assistant reimplementation of my old Domoticz weather/solar predictor — that predicts hourly, same-day, next-day, and rolling 24-hour photovoltaic (PV) solar energy production across **up to 4 solar panel groups** (roof planes / MPPT strings) using a **Physics-Informed Self-Learning Regression Engine**.
 
 Unlike purely theoretical clear-sky services that systematically over- or under-predict due to local horizon shading, panel aging, microclimate haze, or multi-plane roof limits, `solar_ml_predictor` learns your installation's real-world MPPT behavior directly from Home Assistant—while automatically excluding zero-export battery-full clipping and inverter AC saturation hours.
 
