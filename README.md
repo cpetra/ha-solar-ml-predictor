@@ -280,7 +280,7 @@ $$
 From these, the model constructs the 4-element feature vector:
 
 $$
-\mathbf{x}_h = \begin{bmatrix} x_{0,h} & x_{1,h} & x_{2,h} & x_{3,h} \end{bmatrix}^\top
+\mathbf{x}_h = \left[ x_{0,h}, \quad x_{1,h}, \quad x_{2,h}, \quad x_{3,h} \right]^\top
 $$
 
 | Feature | Formula | Learned Weight & Physical Role |
