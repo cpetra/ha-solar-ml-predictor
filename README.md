@@ -33,9 +33,9 @@ Unlike purely theoretical clear-sky services that systematically over- or under-
 ## Key Capabilities
 
 - **Up to 4 Independent Solar Panel Groups**: Configure 1 to 4 roof planes / MPPT strings (`Name`, `Peak kWp`, `Roof Tilt`, `Compass Azimuth`) directly in the Home Assistant UI—ideal for single-slope roofs, East–West / ENE–WSW split gable roofs, or multi-building setups (roof + garage + pergola).
-- **Expansion-Proof Weight Scaling**: All groups are normalized internally against a canonical `8.50 kWp` reference unit ($P_{\text{ref}} = 8.50\text{ kWp}$). Adding new panels or enabling a 2nd/3rd/4th group immediately scales predictions without losing previously learned weights or resetting sample history.
+- **Seamless Array Expansion**: All groups are normalized internally against a canonical `8.50 kWp` reference unit (`P_ref = 8.50 kWp`). Adding new panels or enabling a 2nd/3rd/4th group immediately scales predictions without losing previously learned weights or resetting sample history.
 - **Zero-Overhead Online Self-Learning + One-Click Recorder Bootstrap**: Updates weights at `:02` every daylight hour (`< 1 ms` CPU, `< 100` bytes storage, `4,400`-hour / 1-year rolling memory) and includes a 1-click **`Retrain from Recorder`** button to fit 30–365 days of historical Home Assistant Long-Term Statistics in `< 50 ms`.
-- **Zero External Python Dependencies (`requirements: []`)**: Implements solar astronomy, Normalized LMS, and a $4\times 4$ partial-pivoting Ridge solver in pure Python—installing instantly on Home Assistant OS, Green, Yellow, Container, and Core.
+- **Zero External Python Dependencies (`requirements: []`)**: Implements solar astronomy, Normalized LMS, and a `4×4` partial-pivoting Ridge solver in pure Python—installing instantly on Home Assistant OS, Green, Yellow, Container, and Core.
 - **Bundled 24-Hour Bar-Chart Card (`custom:solar-ml-24h-card`)**: Auto-hosted Web Component matching Home Assistant's native **Energy Solar** bar chart, with `ResizeObserver` 1:1 pixel-sharp SVG rendering and hover/tap hourly inspection.
 
 ---
@@ -220,55 +220,81 @@ flowchart TD
 
 ### 2. Solar Position Astronomy
 
-For every evaluated hour $h$ (using the midpoint UTC timestamp $t_{\text{mid}} = t_{\text{start}} + 30\text{ min}$), the engine computes exact solar position from Home Assistant's latitude $\phi$ and longitude $\lambda$ using Spencer's Fourier series for fractional year angle $\gamma_{\text{yr}}$:
+For every evaluated hour `h` (at midpoint UTC timestamp `t_mid = t_start + 30 min`), the engine computes exact solar position from Home Assistant's latitude $\phi$ and longitude $\lambda$ using Spencer's Fourier series for fractional year angle $\gamma_{\mathrm{yr}}$ :
 
-1. **Solar Declination ($\delta$) & Equation of Time ($\text{EoT}$, minutes)**: Accounts for Earth's $23.44^\circ$ axial tilt and orbital eccentricity across the 365-day year.
-2. **True Solar Time ($\text{TST}$) & Hour Angle ($\omega$)**:
-   $$\text{TST} = 60 \cdot t_{\text{UTC,hr}} + \text{EoT} + 4\lambda, \qquad \omega = \frac{\text{TST}}{4} - 180^\circ$$
-3. **Solar Elevation ($\text{el}_h$) & Solar Azimuth ($\text{az}_h$)**:
-   $$\sin(\text{el}_h) = \sin\phi\sin\delta + \cos\phi\cos\delta\cos\omega$$
-   When $\text{el}_h \le 0^\circ$ (sun below the horizon), predicted PV output is identically `0.0 kWh`.
+1. **Solar Declination** $\delta$ **& Equation of Time** $\mathrm{EoT}$ (minutes): Accounts for Earth's `23.44°` axial tilt and orbital eccentricity across the 365-day year.
+2. **True Solar Time** $\mathrm{TST}$ **& Hour Angle** $\omega$ :
+
+$$
+\mathrm{TST} = 60 \cdot t_{\mathrm{UTC}} + \mathrm{EoT} + 4\lambda, \qquad \omega = \frac{\mathrm{TST}}{4} - 180^\circ
+$$
+
+3. **Solar Elevation** $\mathrm{el}_h$ **& Solar Azimuth** $\mathrm{az}_h$ :
+
+$$
+\sin(\mathrm{el}_h) = \sin\phi\sin\delta + \cos\phi\cos\delta\cos\omega
+$$
+
+When $\mathrm{el}_h \le 0^\circ$ (sun below the horizon), predicted PV output is identically `0.0 kWh`.
 
 ---
 
 ### 3. Multi-Group POA & Sky-Dome Transposition (`8.50 kWp` Reference Scale)
 
 On a multi-plane roof, **direct solar beam** and **diffuse sky light** behave completely differently:
-- At `09:00 AM` on a clear day, an East-facing string receives strong direct sunlight ($\text{poa}_{\text{East}} > 0.7$), while a West-facing string on the opposite side of the ridge is **self-shaded from the direct sun** ($\text{poa}_{\text{West}} = 0$).
+- At `09:00 AM` on a clear day, an East-facing string receives strong direct sunlight (`poa_East > 0.7`), while a West-facing string on the opposite side of the ridge is **self-shaded from the direct sun** (`poa_West = 0`).
 - Yet that shaded West string still produces power (`~10–25%` of clear-sky midday output, and nearly equal per-kWp output on `100%` overcast days!) because it faces the **isotropic diffuse sky dome**, proportional to its sky view factor $\frac{1 + \cos\beta_g}{2}$.
 
-For each active panel group $g \in \{1, \dots, G\}$ ($1 \le G \le 4$) with installed peak power $P_g$ ($\text{kWp}$), tilt $\beta_g$, and azimuth $\gamma_g$, we normalize capacity against the canonical reference scale $P_{\text{ref}} = 8.50\text{ kWp}$:
+For each active panel group $g \in \{1, \dots, G\}$ (`1 ≤ G ≤ 4`) with installed peak power $P_g$ (`kWp`), tilt $\beta_g$, and azimuth $\gamma_g$, we normalize capacity against the canonical reference scale $P_{\mathrm{ref}} = 8.50\text{ kWp}$ :
 
-$$s_g = \frac{P_g}{8.50}$$
+$$
+s_g = \frac{P_g}{8.50}
+$$
 
-Each group's Plane-of-Array cosine of angle of incidence ($\cos\theta_{i,g,h}$, clamped to `0` when the sun is behind that plane) is:
+Each group's Plane-of-Array cosine of angle of incidence $\cos\theta_{i,g,h}$ (clamped to `0` when the sun is behind that plane) is:
 
-$$\text{poa}_{g,h} = \max\Big(0,\ \sin(\text{el}_h)\cos(\beta_g) + \cos(\text{el}_h)\sin(\beta_g)\cos(\text{az}_h - \gamma_g)\Big)$$
+$$
+\mathrm{poa}_{g,h} = \max\Big(0, \sin(\mathrm{el}_h)\cos(\beta_g) + \cos(\mathrm{el}_h)\sin(\beta_g)\cos(\mathrm{az}_h - \gamma_g)\Big)
+$$
 
 Summing across all active groups produces two dimensionless multi-group geometry factors:
 
-$$\text{poa}_{\text{eff},h} = \sum_{g=1}^{G} s_g \cdot \text{poa}_{g,h}, \qquad \text{sky}_{\text{eff}} = \sum_{g=1}^{G} s_g \cdot \frac{1 + \cos(\beta_g)}{1 + \cos(45^\circ)}$$
+$$
+\mathrm{poa}_{\mathrm{eff},h} = \sum_{g=1}^{G} s_g \cdot \mathrm{poa}_{g,h}, \qquad \mathrm{sky}_{\mathrm{eff}} = \sum_{g=1}^{G} s_g \cdot \frac{1 + \cos(\beta_g)}{1 + \cos(45^\circ)}
+$$
 
 **Why normalize to `8.50 kWp`?**
-1. **Universal Seed Weights**: Whether your house has a `3.0 kWp` balcony/roof string ($s_1 = 0.353$) or a `25.0 kWp` 4-group array ($\sum s_g = 2.941$), the feature magnitudes scale proportionally while the learned weight vector $\mathbf{w}$ stays $O(1)$ (`~0.5–4.5`), keeping the Normalized LMS step-size denominator $1 + \|\mathbf{x}_h\|^2$ well-conditioned across all array sizes.
+1. **Universal Seed Weights**: Whether your house has a `3.0 kWp` balcony/roof string (`s_1 = 0.353`) or a `25.0 kWp` 4-group array (`∑ s_g = 2.941`), the feature magnitudes scale proportionally while the learned weight vector $\mathbf{w}$ stays `O(1)` (`~0.5–4.5`), keeping the Normalized LMS step-size denominator $1 + \lVert \mathbf{x}_h \rVert^2$ well-conditioned across all array sizes.
 2. **Lossless Hardware Upgrades**: Adding a new string in **Configure** updates $s_g$, immediately scaling both direct morning/afternoon POA and sky diffuse yield while preserving your existing learned weights $\mathbf{w}$.
 
 ---
 
 ### 4. The 4 Physical Features & the `uv_index` Skew Trap
 
-Let fractional cloud clarity be $\text{clear}_h = 1 - \frac{\text{clouds}_h}{100} \in [0, 1]$ and atmospheric dryness be $\text{dry}_h = \max\left(0,\ 1 - \frac{\text{humidity}_h}{100}\right) \in [0, 1]$. For each daylight hour $h$, the model constructs the 4-element feature vector $\mathbf{x}_h = [x_{0,h}, x_{1,h}, x_{2,h}, x_{3,h}]^\top$:
+For each daylight hour `h`, cloud clarity and atmospheric dryness in `[0, 1]` are defined as:
+
+$$
+\mathrm{clear}_h = 1 - \frac{\mathrm{clouds}_h}{100}, \qquad \mathrm{dry}_h = \max\left(0, 1 - \frac{\mathrm{humidity}_h}{100}\right)
+$$
+
+From these, the model constructs the 4-element feature vector:
+
+$$
+\mathbf{x}_h = \begin{bmatrix} x_{0,h} & x_{1,h} & x_{2,h} & x_{3,h} \end{bmatrix}^\top
+$$
 
 | Feature | Formula | Learned Weight & Physical Role |
 | :--- | :--- | :--- |
-| $x_{0,h}$ | $\text{poa}_{\text{eff},h} \cdot \text{clear}_h^2$ | **$w_0$ (`1.6201` prior)** — Primary **direct solar beam** incident on the tilted panel planes, quadratically attenuated by cloud cover. |
-| $x_{1,h}$ | $\text{sky}_{\text{eff}} \cdot \sin(\text{el}_h) \cdot \text{clear}_h^2$ | **$w_1$ (`-0.4649` prior)** — Clear-sky **horizontal / incidence-angle & air-mass correction** balancing low-elevation grazing vs. high-noon beam angles. |
-| $x_{2,h}$ | $\text{poa}_{\text{eff},h} \cdot \text{dry}_h$ | **$w_2$ (`1.8363` prior)** — **Low-humidity / low-haze direct beam transmittance** (distinguishing crisp dry air from humid hazy/foggy boundary layers). |
-| $x_{3,h}$ | $\text{sky}_{\text{eff}} \cdot \sin(\text{el}_h) \cdot (0.25 + 0.75 \cdot \text{clear}_h)$ | **$w_3$ (`4.4914` prior)** — **Isotropic sky diffuse & cloud-transmitted irradiance** (retaining a `25%` diffuse floor under `100%` overcast skies so cloudy winter days remain accurate). |
+| $x_{0,h}$ | $\mathrm{poa}_{\mathrm{eff},h} \cdot \mathrm{clear}_h^2$ | **`w0` (`1.6201` prior)** — Primary **direct solar beam** incident on the tilted panel planes, quadratically attenuated by cloud cover. |
+| $x_{1,h}$ | $\mathrm{sky}_{\mathrm{eff}} \cdot \sin(\mathrm{el}_h) \cdot \mathrm{clear}_h^2$ | **`w1` (`-0.4649` prior)** — Clear-sky **horizontal / incidence-angle & air-mass correction** balancing low-elevation grazing vs. high-noon beam angles. |
+| $x_{2,h}$ | $\mathrm{poa}_{\mathrm{eff},h} \cdot \mathrm{dry}_h$ | **`w2` (`1.8363` prior)** — **Low-humidity / low-haze direct beam transmittance** (distinguishing crisp dry air from humid hazy/foggy boundary layers). |
+| $x_{3,h}$ | $\mathrm{sky}_{\mathrm{eff}} \cdot \sin(\mathrm{el}_h) \cdot (0.25 + 0.75 \cdot \mathrm{clear}_h)$ | **`w3` (`4.4914` prior)** — **Isotropic sky diffuse & cloud-transmitted irradiance** (retaining a `25%` diffuse floor under `100%` overcast skies so cloudy winter days remain accurate). |
 
-Predicted hourly energy (in $\text{kWh}$) is clamped between `0.0` and the inverter's rated AC ceiling $P_{\text{inv,AC}}$:
+Predicted hourly energy (in `kWh`) is clamped between `0.0` and the inverter's rated AC ceiling $P_{\mathrm{inv,AC}}$ :
 
-$$\hat{y}_h = \min\Big(P_{\text{inv,AC}},\ \max\big(0,\ \mathbf{w}^\top \mathbf{x}_h\big)\Big)$$
+$$
+\hat{y}_h = \min\Big(P_{\mathrm{inv,AC}}, \max\big(0, \mathbf{w}^\top \mathbf{x}_h\big)\Big)
+$$
 
 > [!IMPORTANT]
 > **Why `uv_index` Is Deliberately Excluded (Train/Serve Skew Prevention):**
@@ -283,8 +309,8 @@ Real-world solar inverters exhibit non-meteorological curtailment that ruins nai
 1. **Dual-Endpoint Battery Clipping Guard (`ZERO_EXPORT_TO_CT`)**:
    - Records start-of-hour battery SOC (`s0`) and compares both `s0 < clip_soc_threshold` and end-of-hour `soc_now < clip_soc_threshold` (default `98.0%`). If the battery touched full charge at either boundary (or `soc_max >= 98%` in Recorder history), the hour is skipped so battery-throttled afternoon PV never drags clear-sky weights downward.
 2. **Inverter AC Saturation Guard**:
-   - When total DC panel kWp exceeds the inverter's AC limit (for example, `13 kWp` of East+West panels on a `10 kW` inverter), rare cold broken-cloud solar noon peaks can hit the `10 kW` ceiling. Hours with $y_{\text{actual}} \ge P_{\text{inv,AC}} - 0.2\text{ kWh}$ are skipped from weight updates while predictions remain cleanly bounded by $\min(P_{\text{inv,AC}}, \dots)$.
-3. **Horizon Grazing Filter ($\text{el}_h > 3.0^\circ$)**:
+   - When total DC panel kWp exceeds the inverter's AC limit (for example, `13 kWp` of East+West panels on a `10 kW` inverter), rare cold broken-cloud solar noon peaks can hit the `10 kW` ceiling. Hours with $y_{\mathrm{actual}} \ge P_{\mathrm{inv,AC}} - 0.2\text{ kWh}$ are skipped from weight updates while predictions remain cleanly bounded by $\min(P_{\mathrm{inv,AC}}, \dots)$.
+3. **Horizon Grazing Filter (`el > 3.0°`)**:
    - Online learning updates only when mid-hour solar elevation exceeds `3.0°`, avoiding noisy dawn/dusk inverter wakeup thresholds and partial-sunset minutes.
 4. **Cloud-Inverter Outage Re-Anchoring (`pv0 = -1.0`)**:
    - Cloud-polled inverter integrations occasionally go `unavailable` for 1–2 hours and then jump forward by the cumulative multi-hour energy produced offline. Whenever the PV sensor is unavailable at `:02`, the learner sets `pv0 = -1.0`, causing the next recovery hour to re-anchor `pv0 = pv_now` cleanly rather than misinterpreting a 3-hour catch-up delta as a 1-hour superpower spike.
@@ -296,20 +322,26 @@ Real-world solar inverters exhibit non-meteorological curtailment that ruins nai
 ### 6. Dual Learning Modes: Hourly Online NLMS & Batch Ridge Regression
 
 #### A. Hourly `:02` Online Normalized LMS (Continuous Self-Adaptation)
-At `:02` past every hour, for each valid unclipped daylight hour with actual production $y_{h-1} = \text{PV}_{\text{now}} - \text{pv}_0$ and prior prediction $\hat{y}_{h-1}$:
+At `:02` past every hour, for each valid unclipped daylight hour with actual production `y_actual = PV_now - pv_0` ($y_{h-1}$) and prior prediction $\hat{y}_{h-1}$ :
 
-$$n_{\text{new}} = \min(N_{\max},\ n + 1), \qquad \eta = \frac{1}{n_{\text{new}} \big(1 + \|\mathbf{x}_{h-1}\|^2\big)}$$
+$$
+n_{\mathrm{new}} = \min(N_{\max}, n + 1), \qquad \eta = \frac{1}{n_{\mathrm{new}} \big(1 + \lVert \mathbf{x}_{h-1} \rVert^2\big)}
+$$
 
-$$\mathbf{w} \leftarrow \operatorname{round}_6\!\Big(\mathbf{w} + \eta\big((y_{h-1} - \hat{y}_{h-1})\mathbf{x}_{h-1} - 0.01(\mathbf{w} - \mathbf{w}_{\text{prior}})\big)\Big)$$
+$$
+\mathbf{w} \leftarrow \mathrm{round}_6\Big(\mathbf{w} + \eta\big((y_{h-1} - \hat{y}_{h-1})\mathbf{x}_{h-1} - 0.01(\mathbf{w} - \mathbf{w}_{\mathrm{prior}})\big)\Big)
+$$
 
-- **Self-Normalized Step Size**: Dividing by $1 + \|\mathbf{x}_{h-1}\|^2$ bounds gradient steps regardless of array capacity or solar noon intensity, guaranteeing Lyapunov stability without hyperparameter tuning.
-- **Rolling 1-Year Seasonal Memory (`N_max = 4,400`)**: Across temperate latitudes, a full calendar year contains `~4,380` daylight hours. Capping $n_{\text{new}}$ at `4,400` transitions the learner smoothly from a $1/n$ expanding average in Year 1 into a constant-horizon 1-year exponential moving window—so winter cloudy months never erase summer clear-sky calibration, while multi-year panel degradation (`~0.4%/yr`) is tracked automatically.
-- **Weak Prior Anchoring (`0.01 * eta`) & 6-Decimal Precision**: Gentle shrinkage toward $\mathbf{w}_{\text{prior}}$ prevents collinear weight drift during prolonged overcast spells, while `round(6)` precision prevents floating-point quantization underflow even at $n = 4,400$.
+- **Self-Normalized Step Size**: Dividing by $1 + \lVert \mathbf{x}_{h-1} \rVert^2$ bounds gradient steps regardless of array capacity or solar noon intensity, guaranteeing Lyapunov stability without hyperparameter tuning.
+- **Rolling 1-Year Seasonal Memory (`N_max = 4,400`)**: Across temperate latitudes, a full calendar year contains `~4,380` daylight hours. Capping $n_{\mathrm{new}}$ at `4,400` transitions the learner smoothly from a `1 / n` expanding average in Year 1 into a constant-horizon 1-year exponential moving window—so winter cloudy months never erase summer clear-sky calibration, while multi-year panel degradation (`~0.4%/yr`) is tracked automatically.
+- **Weak Prior Anchoring (`0.01 * eta`) & 6-Decimal Precision**: Gentle shrinkage toward $\mathbf{w}_{\mathrm{prior}}$ prevents collinear weight drift during prolonged overcast spells, while `round(6)` precision prevents floating-point quantization underflow even at `n = 4,400`.
 
-#### B. Pure-Python $4\times 4$ Batch Ridge Regression (`Retrain from Recorder`)
-When triggered via the **`Retrain from Recorder`** button or `solar_ml_predictor.retrain_from_recorder`, the coordinator queries Home Assistant's `recorder` hourly statistics (`change` for daily PV, `max`/`mean` for SOC, `mean` for clouds and humidity), filters out missing-target (`change == null`) and clipped hours, and solves the closed-form prior-centered Tikhonov / Ridge normal equations ($\alpha = 0.15$) via partial-pivoting Gaussian elimination:
+#### B. Pure-Python `4×4` Batch Ridge Regression (`Retrain from Recorder`)
+When triggered via the **`Retrain from Recorder`** button or `solar_ml_predictor.retrain_from_recorder`, the coordinator queries Home Assistant's `recorder` hourly statistics (`change` for daily PV, `max`/`mean` for SOC, `mean` for clouds and humidity), filters out missing-target (`change == null`) and clipped hours, and solves the closed-form prior-centered Tikhonov / Ridge normal equations (`α = 0.15`) via partial-pivoting Gaussian elimination:
 
-$$\big(\mathbf{X}^\top \mathbf{X} + \alpha \mathbf{I}_4\big)\mathbf{w} = \mathbf{X}^\top \mathbf{y} + \alpha \mathbf{w}_{\text{prior}}$$
+$$
+\big(\mathbf{X}^\top \mathbf{X} + \alpha \mathbf{I}_4\big)\mathbf{w} = \mathbf{X}^\top \mathbf{y} + \alpha \mathbf{w}_{\mathrm{prior}}
+$$
 
 ---
 
@@ -318,9 +350,13 @@ $$\big(\mathbf{X}^\top \mathbf{X} + \alpha \mathbf{I}_4\big)\mathbf{w} = \mathbf
 Weather integrations cache hourly forecast arrays whose first slot often begins at the start of the current hour (`HH:00`) or even the previous hour. Naively summing all forecast slots for "today" and adding `Produced Today` double-counts energy already generated during the current hour—creating a classic afternoon "sawtooth" overshoot.
 
 `solar_ml_predictor` eliminates intra-hour double-counting cleanly:
-1. Any cached weather slot with $\text{slot\_end} \le t_{\text{now}}$ is discarded.
-2. For `Forecast Remaining Today`, the active in-progress hour ($\text{slot\_start} \le t_{\text{now}} < \text{slot\_end}$) is scaled by its remaining fraction:
-   $$f_{\text{rem}} = \min\!\left(1.0,\ \frac{\text{slot\_end} - t_{\text{now}}}{3600}\right)$$
+1. Any cached weather slot with `slot_end <= t_now` is discarded.
+2. For `Forecast Remaining Today`, the active in-progress hour (`slot_start <= t_now < slot_end`) is scaled by its remaining fraction:
+
+$$
+f_{\mathrm{rem}} = \min\left(1.0, \frac{t_{\mathrm{end}} - t_{\mathrm{now}}}{3600}\right)
+$$
+
 3. Whenever your inverter's `Daily PV` sensor ticks upward mid-hour, `Forecast Today = Produced Today + Forecast Remaining Today` updates instantaneously from cached slots without re-polling the weather API.
 4. Meanwhile, `Forecast Next 24h` outputs the 24 consecutive hourly bar heights starting from the current hour (`series_compact` & `hourly_forecast` attributes) so the 24-hour bar chart displays smooth, un-truncated hourly `kWh` bars.
 
