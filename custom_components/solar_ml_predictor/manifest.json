@@ -1,0 +1,12 @@
+{
+  "domain": "solar_ml_predictor",
+  "name": "Solar ML Predictor",
+  "codeowners": ["@cpetra"],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/cpetra/ha-solar-ml-predictor",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/cpetra/ha-solar-ml-predictor/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

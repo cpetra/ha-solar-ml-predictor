@@ -1,0 +1,79 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Solar ML Predictor — Multi-Group Setup",
+        "description": "Configure your weather forecast source, inverter PV sensor, and up to 4 solar panel groups (set Peak Power to 0 kWp on unused groups).",
+        "data": {
+          "weather_entity": "Hourly Weather Entity",
+          "daily_pv_entity": "Daily PV Generation Sensor (kWh)",
+          "battery_soc_entity": "Battery State of Charge Sensor (%) (optional)",
+          "cloud_coverage_entity": "Live Cloud Coverage Sensor (%) (optional)",
+          "humidity_entity": "Live Outdoor Humidity Sensor (%) (optional)",
+          "inverter_ac_limit_kw": "Inverter Rated AC Power Limit (kW)",
+          "clip_soc_threshold": "Battery Clipping Exclusion Threshold (%)",
+          "max_training_samples": "Rolling Online Memory Window (Daylight Hours)",
+          "group_1_name": "Group 1 — Name",
+          "group_1_peak_kw": "Group 1 — Installed Peak Power (kWp)",
+          "group_1_tilt": "Group 1 — Roof Tilt / Declination (°)",
+          "group_1_azimuth": "Group 1 — Azimuth (0°=N, 90°=E, 180°=S, 270°=W)",
+          "group_2_name": "Group 2 — Name",
+          "group_2_peak_kw": "Group 2 — Installed Peak Power (0 = Disabled)",
+          "group_2_tilt": "Group 2 — Roof Tilt / Declination (°)",
+          "group_2_azimuth": "Group 2 — Azimuth (°)",
+          "group_3_name": "Group 3 — Name",
+          "group_3_peak_kw": "Group 3 — Installed Peak Power (0 = Disabled)",
+          "group_3_tilt": "Group 3 — Roof Tilt / Declination (°)",
+          "group_3_azimuth": "Group 3 — Azimuth (°)",
+          "group_4_name": "Group 4 — Name",
+          "group_4_peak_kw": "Group 4 — Installed Peak Power (0 = Disabled)",
+          "group_4_tilt": "Group 4 — Roof Tilt / Declination (°)",
+          "group_4_azimuth": "Group 4 — Azimuth (°)"
+        }
+      }
+    },
+    "error": {
+      "no_active_groups": "At least one solar panel group must have Installed Peak Power greater than 0 kWp."
+    },
+    "abort": {
+      "already_configured": "A Solar ML Predictor is already configured for this daily PV sensor."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Solar ML Predictor — Configure Panel Groups & Learner",
+        "description": "Add, adjust, or disable up to 4 solar panel groups. Learned model weights automatically scale to capacity changes without losing training history.",
+        "data": {
+          "weather_entity": "Hourly Weather Entity",
+          "daily_pv_entity": "Daily PV Generation Sensor (kWh)",
+          "battery_soc_entity": "Battery State of Charge Sensor (%) (optional)",
+          "cloud_coverage_entity": "Live Cloud Coverage Sensor (%) (optional)",
+          "humidity_entity": "Live Outdoor Humidity Sensor (%) (optional)",
+          "inverter_ac_limit_kw": "Inverter Rated AC Power Limit (kW)",
+          "clip_soc_threshold": "Battery Clipping Exclusion Threshold (%)",
+          "max_training_samples": "Rolling Online Memory Window (Daylight Hours)",
+          "group_1_name": "Group 1 — Name",
+          "group_1_peak_kw": "Group 1 — Installed Peak Power (kWp)",
+          "group_1_tilt": "Group 1 — Roof Tilt / Declination (°)",
+          "group_1_azimuth": "Group 1 — Azimuth (0°=N, 90°=E, 180°=S, 270°=W)",
+          "group_2_name": "Group 2 — Name",
+          "group_2_peak_kw": "Group 2 — Installed Peak Power (0 = Disabled)",
+          "group_2_tilt": "Group 2 — Roof Tilt / Declination (°)",
+          "group_2_azimuth": "Group 2 — Azimuth (°)",
+          "group_3_name": "Group 3 — Name",
+          "group_3_peak_kw": "Group 3 — Installed Peak Power (0 = Disabled)",
+          "group_3_tilt": "Group 3 — Roof Tilt / Declination (°)",
+          "group_3_azimuth": "Group 3 — Azimuth (°)",
+          "group_4_name": "Group 4 — Name",
+          "group_4_peak_kw": "Group 4 — Installed Peak Power (0 = Disabled)",
+          "group_4_tilt": "Group 4 — Roof Tilt / Declination (°)",
+          "group_4_azimuth": "Group 4 — Azimuth (°)"
+        }
+      }
+    },
+    "error": {
+      "no_active_groups": "At least one solar panel group must have Installed Peak Power greater than 0 kWp."
+    }
+  }
+}

@@ -1,0 +1,62 @@
+refresh_forecast:
+  name: Refresh Solar ML Forecast
+  description: Immediately fetch hourly weather forecasts and recompute Today, Remaining Today, Tomorrow, and Next-24h PV predictions without modifying learned weights.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: Optional config entry ID (refreshes all Solar ML Predictor entries when omitted).
+      required: false
+      selector:
+        text:
+
+retrain_from_recorder:
+  name: Retrain from Recorder Statistics
+  description: Batch-fit model weights from Home Assistant Recorder hourly Long-Term Statistics while excluding battery-clipped and inverter-saturated hours.
+  fields:
+    days:
+      name: Lookback Days
+      description: Number of days of hourly Recorder statistics to train on.
+      required: false
+      default: 30
+      selector:
+        number:
+          min: 3
+          max: 365
+          step: 1
+          unit_of_measurement: days
+          mode: box
+    entry_id:
+      name: Config Entry ID
+      description: Optional config entry ID (retrains all Solar ML Predictor entries when omitted).
+      required: false
+      selector:
+        text:
+
+set_model_state:
+  name: Set or Import Model State
+  description: Manually seed or import learned weights `[w0, w1, w2, w3]` and sample count `n` (for example when migrating from a standalone template/helper setup).
+  fields:
+    weights:
+      name: Weights
+      description: Four-element list `[w0, w1, w2, w3]` normalized to the 8.50 kWp reference unit.
+      required: true
+      example: "[1.6201, -0.4649, 1.8363, 4.4914]"
+      selector:
+        object:
+    samples:
+      name: Training Samples
+      description: Learned daylight hour count `n`.
+      required: true
+      default: 80
+      selector:
+        number:
+          min: 1
+          max: 8800
+          step: 1
+          mode: box
+    entry_id:
+      name: Config Entry ID
+      description: Optional config entry ID.
+      required: false
+      selector:
+        text:
